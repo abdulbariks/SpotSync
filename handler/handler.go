@@ -8,16 +8,21 @@ import (
 	"spotsync/models"
 	"spotsync/repository"
 	"spotsync/service"
-
 	"github.com/labstack/echo/v4"
 )
 
 type Handler struct {
-	service *service.Service
+	userService        *service.UserService
+	zoneService        *service.ZoneService
+	reservationService *service.ReservationService
 }
 
-func NewHandler(svc *service.Service) *Handler {
-	return &Handler{service: svc}
+func NewHandler(userSvc *service.UserService, zoneSvc *service.ZoneService, reservationSvc *service.ReservationService) *Handler {
+	return &Handler{
+		userService:        userSvc,
+		zoneService:        zoneSvc,
+		reservationService: reservationSvc,
+	}
 }
 
 func (h *Handler) Register(c echo.Context) error {
@@ -30,7 +35,7 @@ func (h *Handler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": "Validation failed", "errors": err.Error()})
 	}
 
-	resp, err := h.service.Register(&req)
+	resp, err := h.userService.Register(&req)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": err.Error()})
 	}
@@ -52,7 +57,7 @@ func (h *Handler) Login(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": "Validation failed", "errors": err.Error()})
 	}
 
-	resp, err := h.service.Login(&req)
+	resp, err := h.userService.Login(&req)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"success": false, "message": err.Error()})
 	}
@@ -74,7 +79,7 @@ func (h *Handler) CreateZone(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": "Validation failed", "errors": err.Error()})
 	}
 
-	resp, err := h.service.CreateParkingZone(&req)
+	resp, err := h.zoneService.Create(&req)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"success": false, "message": "Failed to create zone"})
 	}
@@ -87,7 +92,7 @@ func (h *Handler) CreateZone(c echo.Context) error {
 }
 
 func (h *Handler) GetAllZones(c echo.Context) error {
-	zones, err := h.service.GetAllParkingZones()
+	zones, err := h.zoneService.GetAll()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"success": false, "message": "Failed to fetch zones"})
 	}
@@ -101,7 +106,7 @@ func (h *Handler) GetAllZones(c echo.Context) error {
 
 func (h *Handler) GetZone(c echo.Context) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
-	zone, err := h.service.GetParkingZoneByID(uint(id))
+	zone, err := h.zoneService.GetByID(uint(id))
 	if err != nil {
 		if err == repository.ErrZoneNotFound {
 			return c.JSON(http.StatusNotFound, echo.Map{"success": false, "message": "Parking zone not found"})
@@ -128,7 +133,7 @@ func (h *Handler) UpdateZone(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": "Validation failed", "errors": err.Error()})
 	}
 
-	resp, err := h.service.UpdateParkingZone(uint(id), &req)
+	resp, err := h.zoneService.Update(uint(id), &req)
 	if err != nil {
 		if err == repository.ErrZoneNotFound {
 			return c.JSON(http.StatusNotFound, echo.Map{"success": false, "message": "Parking zone not found"})
@@ -145,7 +150,7 @@ func (h *Handler) UpdateZone(c echo.Context) error {
 
 func (h *Handler) DeleteZone(c echo.Context) error {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err := h.service.DeleteParkingZone(uint(id)); err != nil {
+	if err := h.zoneService.Delete(uint(id)); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"success": false, "message": "Failed to delete zone"})
 	}
 
@@ -170,7 +175,7 @@ func (h *Handler) CreateReservation(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"success": false, "message": "Validation failed", "errors": err.Error()})
 	}
 
-	resp, err := h.service.ReserveSpot(&req, user.UserID)
+	resp, err := h.reservationService.Create(&req, user.UserID)
 	if err != nil {
 		if err == repository.ErrZoneFull {
 			return c.JSON(http.StatusConflict, echo.Map{"success": false, "message": "Parking zone is at full capacity"})
@@ -197,7 +202,7 @@ func (h *Handler) GetMyReservations(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"success": false, "message": "Unauthorized"})
 	}
 
-	reservations, err := h.service.GetMyReservations(user.UserID)
+	reservations, err := h.reservationService.GetMyReservations(user.UserID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"success": false, "message": "Failed to fetch reservations"})
 	}
@@ -217,7 +222,7 @@ func (h *Handler) CancelReservation(c echo.Context) error {
 
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 32)
 
-	if err := h.service.CancelReservation(uint(id), user.UserID); err != nil {
+	if err := h.reservationService.Cancel(uint(id), user.UserID); err != nil {
 		if err.Error() == "unauthorized: cannot cancel another user's reservation" {
 			return c.JSON(http.StatusForbidden, echo.Map{"success": false, "message": "Cannot cancel another user's reservation"})
 		}
@@ -234,7 +239,7 @@ func (h *Handler) CancelReservation(c echo.Context) error {
 }
 
 func (h *Handler) GetAllReservations(c echo.Context) error {
-	reservations, err := h.service.GetAllReservations()
+	reservations, err := h.reservationService.GetAll()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"success": false, "message": "Failed to fetch reservations"})
 	}

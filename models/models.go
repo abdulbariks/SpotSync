@@ -32,11 +32,11 @@ const (
 )
 
 type ParkingZone struct {
-	ID           uint           `gorm:"primaryKey"`
-	Name         string         `gorm:"not null"`
+	ID           uint            `gorm:"primaryKey"`
+	Name         string          `gorm:"not null"`
 	Type         ParkingZoneType `gorm:"not null"`
-	TotalCapacity int           `gorm:"not null"`
-	PricePerHour float64        `gorm:"not null"`
+	TotalCapacity int            `gorm:"not null"`
+	PricePerHour  float64        `gorm:"not null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -57,9 +57,8 @@ type Reservation struct {
 	Status      ReservationStatus `gorm:"default:active;not null"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-
-	User User `gorm:"foreignKey:UserID"`
-	Zone ParkingZone `gorm:"foreignKey:ZoneID"`
+	User        User       `gorm:"foreignKey:UserID"`
+	Zone        ParkingZone `gorm:"foreignKey:ZoneID"`
 }
 
 type JWTClaims struct {

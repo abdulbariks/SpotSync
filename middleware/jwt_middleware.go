@@ -10,11 +10,11 @@ import (
 )
 
 type JWTMiddleware struct {
-	service *service.Service
+	userService *service.UserService
 }
 
-func NewJWTMiddleware(service *service.Service) *JWTMiddleware {
-	return &JWTMiddleware{service: service}
+func NewJWTMiddleware(userService *service.UserService) *JWTMiddleware {
+	return &JWTMiddleware{userService: userService}
 }
 
 func (m *JWTMiddleware) VerifyJWT(next echo.HandlerFunc) echo.HandlerFunc {
@@ -29,7 +29,7 @@ func (m *JWTMiddleware) VerifyJWT(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, echo.Map{"success": false, "message": "Invalid authorization header format"})
 		}
 
-		claims, err := m.service.ValidateJWT(parts[1])
+		claims, err := m.userService.ValidateJWT(parts[1])
 		if err != nil {
 			return c.JSON(http.StatusUnauthorized, echo.Map{"success": false, "message": "Invalid or expired token"})
 		}

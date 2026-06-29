@@ -63,8 +63,13 @@ func main() {
 		jwtExpiryHours, _ = strconv.Atoi(h)
 	}
 
-	repo := repository.NewRepository(db)
-	svc := service.NewService(repo, jwtSecret, jwtExpiryHours)
+	userRepo := repository.NewUserRepository(db)
+	zoneRepo := repository.NewZoneRepository(db)
+	reservationRepo := repository.NewReservationRepository(db)
+
+	userSvc := service.NewUserService(userRepo, jwtSecret, jwtExpiryHours)
+	zoneSvc := service.NewZoneService(zoneRepo)
+	reservationSvc := service.NewReservationService(reservationRepo)
 
 	e := echo.New()
 	e.Validator = &CustomValidator{validator: validator.New()}
@@ -72,8 +77,8 @@ func main() {
 	e.Use(echomiddleware.Recover())
 	e.Use(echomiddleware.CORS())
 
-	h := handler.NewHandler(svc)
-	jwtMiddleware := middleware.NewJWTMiddleware(svc)
+	h := handler.NewHandler(userSvc, zoneSvc, reservationSvc)
+	jwtMiddleware := middleware.NewJWTMiddleware(userSvc)
 
 	e.POST("/api/v1/auth/register", h.Register)
 	e.POST("/api/v1/auth/login", h.Login)
