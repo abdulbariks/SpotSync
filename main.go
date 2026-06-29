@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"spotsync/domain/reservation"
-	"spotsync/domain/zone"
-	user "spotsync/domain/user"
+	"spotsync/reservation"
+	"spotsync/zone"
+	"spotsync/user"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
