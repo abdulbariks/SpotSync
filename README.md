@@ -1,6 +1,6 @@
 # SpotSync – Smart Parking & EV Charging Reservation
 
-Live URL: [TBD (deploy to Railway)](https://spotsync-production-9a42.up.railway.app)
+Live URL: [spotsync](https://spotsync-production-9a42.up.railway.app)
 
 A centralized platform for busy airports and malls to manage parking zones, specifically handling the high-demand reservation of limited EV charging spots.
 
