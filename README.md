@@ -27,25 +27,25 @@ A centralized platform for busy airports and malls to manage parking zones, spec
 
 ## Architecture
 
-Clean Architecture with strict modular layer separation:
+Modular Clean Architecture with domain-based organization:
 
 ```
 main.go
-  ├── handler/
-  │     └── handler.go        # HTTP handlers (auth, zones, reservations)
-  ├── service/
-  │     ├── user_service.go   # User registration, login, JWT
-  │     ├── zone_service.go   # Parking zone CRUD
-  │     └── reservation_service.go  # Reservation management
-  ├── repository/
-  │     ├── user_repository.go    # User DB operations
-  │     ├── zone_repository.go    # Zone DB operations
-  │     └── reservation_repository.go # Reservation DB with row locking
-  ├── models/
-  │     └── models.go       # GORM structs (User, ParkingZone, Reservation)
-  └── dto/
-        └── dto.go          # Request/Response structures
+  └── domain/
+      ├── user/
+      │     ├── user.go         # Model, DTOs, Repository, Service, HTTPHandler, JWTMiddleware
+      ├── zone/
+      │     ├── zone.go         # Model, DTOs, Repository, Service, HTTPHandler
+      └── reservation/
+            ├── reservation.go  # Model, DTOs, Repository, Service, HTTPHandler
 ```
+
+Each domain contains:
+- **Model**: GORM entity struct
+- **DTOs**: Request/Response structures with validation tags
+- **Repository**: Data access layer with GORM operations
+- **Service**: Business logic
+- **HTTPHandler**: HTTP endpoints for the domain
 
 ## Setup
 

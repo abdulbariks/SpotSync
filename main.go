@@ -2,16 +2,13 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"spotsync/handler"
-	"spotsync/middleware"
-	"spotsync/models"
-	"spotsync/repository"
-	"spotsync/service"
+	"spotsync/domain/reservation"
+	"spotsync/domain/zone"
+	user "spotsync/domain/user"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
@@ -53,7 +50,7 @@ func main() {
 	sqlDB.SetMaxIdleConns(25)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
-	if err := db.AutoMigrate(&models.User{}, &models.ParkingZone{}, &models.Reservation{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &zone.ParkingZone{}, &reservation.Reservation{}); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
@@ -63,13 +60,13 @@ func main() {
 		jwtExpiryHours, _ = strconv.Atoi(h)
 	}
 
-	userRepo := repository.NewUserRepository(db)
-	zoneRepo := repository.NewZoneRepository(db)
-	reservationRepo := repository.NewReservationRepository(db)
+	userRepo := user.NewRepository(db)
+	zoneRepo := zone.NewRepository(db)
+	reservationRepo := reservation.NewRepository(db)
 
-	userSvc := service.NewUserService(userRepo, jwtSecret, jwtExpiryHours)
-	zoneSvc := service.NewZoneService(zoneRepo)
-	reservationSvc := service.NewReservationService(reservationRepo)
+	userSvc := user.NewService(userRepo, jwtSecret, jwtExpiryHours)
+	zoneSvc := zone.NewService(zoneRepo)
+	reservationSvc := reservation.NewService(reservationRepo)
 
 	e := echo.New()
 	e.Validator = &CustomValidator{validator: validator.New()}
@@ -77,27 +74,29 @@ func main() {
 	e.Use(echomiddleware.Recover())
 	e.Use(echomiddleware.CORS())
 
-	h := handler.NewHandler(userSvc, zoneSvc, reservationSvc)
-	jwtMiddleware := middleware.NewJWTMiddleware(userSvc)
+	userHandler := user.NewHTTPHandler(userSvc)
+	zoneHandler := zone.NewHTTPHandler(zoneSvc)
+	reservationHandler := reservation.NewHTTPHandler(reservationSvc)
+	jwtMiddleware := user.NewJWTMiddleware(userSvc)
 
-	e.POST("/api/v1/auth/register", h.Register)
-	e.POST("/api/v1/auth/login", h.Login)
+	e.POST("/api/v1/auth/register", userHandler.Register)
+	e.POST("/api/v1/auth/login", userHandler.Login)
 
-	e.GET("/api/v1/zones", h.GetAllZones)
-	e.GET("/api/v1/zones/:id", h.GetZone)
+	e.GET("/api/v1/zones", zoneHandler.GetAllZones)
+	e.GET("/api/v1/zones/:id", zoneHandler.GetZone)
 
 	adminGroup := e.Group("/api/v1")
-	adminGroup.Use(jwtMiddleware.VerifyJWT, adminOnly)
-	adminGroup.POST("/zones", h.CreateZone)
-	adminGroup.PUT("/zones/:id", h.UpdateZone)
-	adminGroup.DELETE("/zones/:id", h.DeleteZone)
-	adminGroup.GET("/reservations", h.GetAllReservations)
+	adminGroup.Use(jwtMiddleware.VerifyJWT, user.AdminOnly)
+	adminGroup.POST("/zones", zoneHandler.CreateZone)
+	adminGroup.PUT("/zones/:id", zoneHandler.UpdateZone)
+	adminGroup.DELETE("/zones/:id", zoneHandler.DeleteZone)
+	adminGroup.GET("/reservations", reservationHandler.GetAllReservations)
 
 	authGroup := e.Group("/api/v1")
 	authGroup.Use(jwtMiddleware.VerifyJWT)
-	authGroup.POST("/reservations", h.CreateReservation)
-	authGroup.GET("/reservations/my-reservations", h.GetMyReservations)
-	authGroup.DELETE("/reservations/:id", h.CancelReservation)
+	authGroup.POST("/reservations", reservationHandler.CreateReservation)
+	authGroup.GET("/reservations/my-reservations", reservationHandler.GetMyReservations)
+	authGroup.DELETE("/reservations/:id", reservationHandler.CancelReservation)
 
 	port := getEnv("SERVER_PORT", "8080")
 	log.Printf("Server starting on port %s", port)
@@ -109,16 +108,6 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-}
-
-func adminOnly(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		user, ok := c.Get("user").(*models.JWTClaims)
-		if !ok || user.Role != models.RoleAdmin {
-			return c.JSON(http.StatusForbidden, echo.Map{"success": false, "message": "Admin access required"})
-		}
-		return next(c)
-	}
 }
 
 type CustomValidator struct {
