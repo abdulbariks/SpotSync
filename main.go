@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"spotsync/reservation"
-	"spotsync/zone"
 	"spotsync/user"
+	"spotsync/zone"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
